@@ -1,0 +1,454 @@
+import React, { useMemo, useState } from "react";
+
+/**
+ * Gaura Ghee — One‑Page Store
+ * --------------------------------------------
+ * • Built for fast local selling in Prayagraj
+ * • TailwindCSS styling (the canvas has it prewired)
+ * • No backend required — orders sent via WhatsApp
+ * • Replace LOGO_URL, BRAND, OWNER_PHONE, ADDRESS to customize
+ */
+
+const BRAND = {
+  name: "Gaura Ghee",
+  tagline: "Pure A2 Desi Ghee from Prayagraj",
+  sub: "Bilona method • Farm fresh • No preservatives",
+};
+
+// 👉 Replace with your uploaded logo URL (PNG/SVG). A data URI works too.
+const LOGO_URL = "https://dummyimage.com/160x160/f7e59b/3b2f2f.png&text=Gaura+Ghee";
+
+// 👉 Change this to your WhatsApp number in international format without +
+// Example: India 91XXXXXXXXXX
+const OWNER_PHONE = "919999999999"; // TODO: set your number
+
+// 👉 Update pickup/delivery address shown in footer & checkout
+const ADDRESS = {
+  line1: "Kausambi Road, Naini",
+  city: "Prayagraj",
+  state: "UP",
+  pincode: "211008",
+};
+
+// Products you sell
+const CATALOG = [
+  {
+    id: "a2-250",
+    title: "A2 Desi Ghee — 250 g",
+    price: 399,
+    desc: "Hand‑churned (bilona). Ideal for pooja & daily use.",
+    features: ["A2 milk", "Bilona method", "Glass jar"],
+    weight: "250 g",
+  },
+  {
+    id: "a2-500",
+    title: "A2 Desi Ghee — 500 g",
+    price: 749,
+    desc: "Most popular size for families.",
+    features: ["From grass‑fed cows", "Rich aroma", "No preservatives"],
+    weight: "500 g",
+  },
+  {
+    id: "a2-1kg",
+    title: "A2 Desi Ghee — 1 kg",
+    price: 1399,
+    desc: "Best value for regular users & gifting.",
+    features: ["Weekly batches", "Lab tested", "COD available"],
+    weight: "1 kg",
+  },
+  {
+    id: "panchamrit",
+    title: "Temple Panchamrit Ghee — 200 g",
+    price: 349,
+    desc: "Special batch for prasad & havan.",
+    features: ["Fragrant", "Copper‑churn finish"],
+    weight: "200 g",
+  },
+];
+
+function formatINR(n) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+}
+
+export default function GauraGheeSite() {
+  const [cart, setCart] = useState({}); // {id: qty}
+  const [openCart, setOpenCart] = useState(false);
+  const [coupon, setCoupon] = useState("");
+
+  const items = useMemo(() => CATALOG.map(p => ({ ...p, qty: cart[p.id] || 0 })), [cart]);
+
+  const subtotal = useMemo(() => items.reduce((s, p) => s + p.price * p.qty, 0), [items]);
+  const discount = useMemo(() => {
+    if (!coupon) return 0;
+    // Simple example coupons; customize as you like
+    if (coupon.toUpperCase() === "GAURA50" && subtotal >= 999) return 50; // flat ₹50
+    if (coupon.toUpperCase() === "PRAYAG10" && subtotal >= 1499) return Math.round(subtotal * 0.1);
+    return 0;
+  }, [coupon, subtotal]);
+  const shipping = subtotal > 999 ? 0 : subtotal > 0 ? 49 : 0;
+  const total = Math.max(subtotal - discount + shipping, 0);
+
+  function add(id, n = 1) {
+    setCart(c => ({ ...c, [id]: Math.max(0, (c[id] || 0) + n) }));
+  }
+  function remove(id) {
+    setCart(c => {
+      const { [id]: _, ...rest } = c;
+      return rest;
+    });
+  }
+
+  function buildWhatsAppMessage(form) {
+    const name = form.get("name");
+    const phone = form.get("phone");
+    const address = form.get("address");
+    const payment = form.get("payment");
+    const delivery = form.get("delivery");
+    const note = form.get("note");
+
+    const lines = [];
+    lines.push(`*${BRAND.name} — New Order*`);
+    lines.push("");
+    items.filter(p => p.qty > 0).forEach(p => {
+      lines.push(`• ${p.title} × ${p.qty} — ${formatINR(p.price * p.qty)}`);
+    });
+    lines.push("");
+    if (discount) lines.push(`Discount: -${formatINR(discount)} (${coupon || "no coupon"})`);
+    if (shipping) lines.push(`Delivery: ${formatINR(shipping)}`);
+    lines.push(`*Total:* ${formatINR(total)}`);
+    lines.push("");
+    lines.push(`Name: ${name}`);
+    lines.push(`Customer phone: ${phone}`);
+    lines.push(`Address: ${address}`);
+    lines.push(`Method: ${payment}`);
+    lines.push(`Fulfilment: ${delivery}`);
+    if (note) lines.push(`Note: ${note}`);
+    lines.push("");
+    lines.push(`— Sent from ${window.location.hostname}`);
+
+    return encodeURIComponent(lines.join("\n"));
+  }
+
+  function handleCheckout(e) {
+    e.preventDefault();
+    if (total <= 0) return alert("Your cart is empty.");
+    const waText = buildWhatsAppMessage(new FormData(e.currentTarget));
+    const wa = `https://wa.me/${OWNER_PHONE}?text=${waText}`;
+    window.open(wa, "_blank");
+  }
+
+  return (
+    <div className="min-h-screen bg-amber-50 text-stone-800">
+      {/* Header */}
+      <header className="sticky top-0 z-30 backdrop-blur bg-amber-50/80 border-b border-amber-200">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={LOGO_URL} alt="Gaura Ghee logo" className="h-12 w-12 rounded-full ring-2 ring-amber-200" />
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">{BRAND.name}</h1>
+              <p className="text-xs text-stone-600">{BRAND.tagline}</p>
+            </div>
+          </div>
+          <nav className="hidden md:flex gap-6 text-sm">
+            <a href="#products" className="hover:text-amber-700">Products</a>
+            <a href="#why" className="hover:text-amber-700">Why Us</a>
+            <a href="#faq" className="hover:text-amber-700">FAQ</a>
+            <a href="#contact" className="hover:text-amber-700">Contact</a>
+          </nav>
+          <button onClick={() => setOpenCart(true)} className="relative rounded-full border px-4 py-2 text-sm bg-white hover:bg-amber-100">
+            Cart
+            <span className="ml-2 rounded-full bg-amber-600 text-white px-2 py-0.5 text-xs">
+              {items.reduce((s, p) => s + p.qty, 0)}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="bg-gradient-to-b from-amber-100 to-amber-50 border-b border-amber-200">
+        <div className="mx-auto max-w-6xl px-4 py-12 grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-stone-900">
+              {BRAND.tagline}
+            </h2>
+            <p className="mt-3 text-stone-700">{BRAND.sub}</p>
+            <ul className="mt-6 grid grid-cols-2 gap-3 text-sm">
+              {[
+                "Traditional bilona (hand‑churned)",
+                "Sourced from local farms",
+                "Slow cooked on low flame",
+                "Free home delivery in city limits",
+              ].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <span className="i">🟡</span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="#products" className="inline-block mt-6 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 font-semibold shadow">
+              Shop now
+            </a>
+          </div>
+          <div className="relative">
+            <div className="absolute -inset-4 rounded-3xl bg-amber-200 blur-2xl opacity-40" />
+            <img src={LOGO_URL} alt="Logo big" className="relative mx-auto h-56 w-56 md:h-64 md:w-64 rounded-full shadow-lg ring-8 ring-white" />
+          </div>
+        </div>
+      </section>
+
+      {/* Products */}
+      <section id="products" className="mx-auto max-w-6xl px-4 py-12">
+        <div className="flex items-end justify-between">
+          <div>
+            <h3 className="text-2xl font-bold">Our Products</h3>
+            <p className="text-sm text-stone-600">Fresh weekly batches • Limited inventory</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={coupon}
+              onChange={(e) => setCoupon(e.target.value)}
+              placeholder="Coupon code"
+              className="border rounded-lg px-3 py-2 text-sm bg-white"
+            />
+            <span className="text-xs text-stone-600">Try: GAURA50 / PRAYAG10</span>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+          {CATALOG.map((p) => (
+            <article key={p.id} className="group rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition">
+              <div className="aspect-square rounded-xl bg-amber-100 grid place-content-center text-6xl">
+                🫙
+              </div>
+              <h4 className="mt-4 font-semibold tracking-tight">{p.title}</h4>
+              <p className="text-sm text-stone-600 mt-1">{p.desc}</p>
+              <ul className="mt-3 text-xs text-stone-700 list-disc list-inside space-y-1">
+                {p.features.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-lg font-bold">{formatINR(p.price)}</div>
+                {cart[p.id] ? (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => add(p.id, -1)} className="w-8 h-8 rounded-full border">-</button>
+                    <span className="min-w-6 text-center">{cart[p.id]}</span>
+                    <button onClick={() => add(p.id, 1)} className="w-8 h-8 rounded-full border">+</button>
+                  </div>
+                ) : (
+                  <button onClick={() => add(p.id, 1)} className="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm shadow hover:bg-amber-700">
+                    Add to cart
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Why Us */}
+      <section id="why" className="bg-white border-y">
+        <div className="mx-auto max-w-6xl px-4 py-12 grid md:grid-cols-3 gap-6">
+          {[{
+            title: "Primitive • Pure",
+            text: "Hand‑churned bilona method in small batches for authentic granules, aroma and color.",
+          }, {
+            title: "Modern • Hygienic",
+            text: "Food‑grade glass, tamper‑evident seals, and batch QR for transparency.",
+          }, {
+            title: "Local • Fresh",
+            text: "Sourced from nearby farms around Prayagraj; delivered within 24–48 hours.",
+          }].map(card => (
+            <div key={card.title} className="rounded-2xl border p-6 bg-amber-50/40">
+              <h4 className="font-bold text-lg">{card.title}</h4>
+              <p className="mt-2 text-sm text-stone-700">{card.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Checkout */}
+      <section id="checkout" className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid md:grid-cols-5 gap-8">
+          <div className="md:col-span-3">
+            <h3 className="text-2xl font-bold">Checkout</h3>
+            <p className="text-sm text-stone-600">Cash on delivery or UPI accepted in city limits.</p>
+            <form onSubmit={handleCheckout} className="mt-6 grid grid-cols-1 gap-4">
+              <input required name="name" placeholder="Your full name" className="border rounded-lg px-3 py-2 bg-white" />
+              <input required pattern="[0-9]{10}" name="phone" placeholder="Phone (10‑digit)" className="border rounded-lg px-3 py-2 bg-white" />
+              <textarea required name="address" rows={3} placeholder={`House No, Area — ${ADDRESS.city} ${ADDRESS.pincode}`} className="border rounded-lg px-3 py-2 bg-white" />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <select name="payment" className="border rounded-lg px-3 py-2 bg-white">
+                  <option value="COD">Cash on Delivery (COD)</option>
+                  <option value="UPI">UPI on Delivery</option>
+                </select>
+                <select name="delivery" className="border rounded-lg px-3 py-2 bg-white">
+                  <option value="Home Delivery">Home Delivery</option>
+                  <option value="Store Pickup">Store Pickup</option>
+                </select>
+              </div>
+              <textarea name="note" rows={2} placeholder="Any instruction (landmark, preferred time, etc.)" className="border rounded-lg px-3 py-2 bg-white" />
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="text-sm text-stone-700">
+                  Subtotal: <strong>{formatINR(subtotal)}</strong> {discount ? (<span className="ml-2">Discount: <strong>-{formatINR(discount)}</strong></span>) : null}
+                  <span className="ml-2">Delivery: <strong>{shipping ? formatINR(shipping) : "FREE"}</strong></span>
+                </div>
+                <div className="text-lg font-bold">Total: {formatINR(total)}</div>
+              </div>
+
+              <button type="submit" className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 font-semibold shadow disabled:opacity-50" disabled={total <= 0}>
+                Place order on WhatsApp
+              </button>
+            </form>
+          </div>
+
+          <aside className="md:col-span-2">
+            <div className="rounded-2xl border bg-white p-4 sticky top-24">
+              <h4 className="font-semibold">Your Cart</h4>
+              <div className="divide-y mt-2">
+                {items.filter(p => p.qty > 0).length === 0 && (
+                  <p className="text-sm text-stone-600 py-4">Cart is empty. Add items to order.</p>
+                )}
+                {items.filter(p => p.qty > 0).map(p => (
+                  <div key={p.id} className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="font-medium">{p.title}</div>
+                      <div className="text-xs text-stone-600">{p.weight}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => add(p.id, -1)} className="w-7 h-7 rounded-full border">-</button>
+                      <span className="min-w-6 text-center">{p.qty}</span>
+                      <button onClick={() => add(p.id, 1)} className="w-7 h-7 rounded-full border">+</button>
+                    </div>
+                    <div className="w-20 text-right">{formatINR(p.price * p.qty)}</div>
+                    <button onClick={() => remove(p.id)} className="text-xs text-red-600 hover:underline">Remove</button>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t mt-3 pt-3 text-sm text-stone-700">
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>-{formatINR(discount)}</span></div>
+                <div className="flex justify-between"><span>Delivery</span><span>{shipping ? formatINR(shipping) : "FREE"}</span></div>
+                <div className="flex justify-between font-bold text-stone-900 mt-2"><span>Total</span><span>{formatINR(total)}</span></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="bg-amber-50 border-t">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <h3 className="text-2xl font-bold">Frequently Asked</h3>
+          <div className="mt-6 grid md:grid-cols-2 gap-6">
+            {[{
+              q: "Is this A2 ghee?",
+              a: "Yes. We use A2 milk from indigenous cows and follow the bilona process.",
+            }, {
+              q: "Do you deliver across Prayagraj?",
+              a: "Yes, delivery is free on orders over ₹999 within city limits.",
+            }, {
+              q: "What’s the shelf life?",
+              a: "Best before 9 months from manufacture. Store in a cool, dry place.",
+            }, {
+              q: "Payment options?",
+              a: "Cash on delivery or UPI at delivery. Bulk/wholesale via bank transfer.",
+            }].map(f => (
+              <div key={f.q} className="rounded-2xl border bg-white p-5">
+                <div className="font-semibold">{f.q}</div>
+                <p className="text-sm text-stone-700 mt-1">{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="md:col-span-2">
+            <h3 className="text-2xl font-bold">Contact</h3>
+            <p className="text-sm text-stone-700 mt-2">Call/WhatsApp for bulk, temple supply, or reseller enquiries.</p>
+            <div className="mt-4 grid sm:grid-cols-2 gap-4 text-sm">
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="font-medium">Phone</div>
+                <a className="text-amber-700 underline" href={`tel:+${OWNER_PHONE}`}>+{OWNER_PHONE}</a>
+              </div>
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="font-medium">WhatsApp</div>
+                <a className="text-amber-700 underline" href={`https://wa.me/${OWNER_PHONE}`} target="_blank">Chat now</a>
+              </div>
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="font-medium">Address</div>
+                <p>{ADDRESS.line1}, {ADDRESS.city} — {ADDRESS.pincode}</p>
+              </div>
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="font-medium">Hours</div>
+                <p>Mon–Sun: 8:00 am – 8:00 pm</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-3xl border bg-amber-100/70 p-6">
+            <h4 className="font-semibold">Become a reseller</h4>
+            <p className="text-sm mt-2">Get fresh stock weekly with attractive margins for kirana & dairy stores.</p>
+            <a className="inline-block mt-4 rounded-xl bg-stone-900 text-amber-100 px-5 py-2" href={`https://wa.me/${OWNER_PHONE}?text=${encodeURIComponent("I want to become a reseller of Gaura Ghee.")}`} target="_blank">Message on WhatsApp</a>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src={LOGO_URL} alt="logo small" className="h-10 w-10 rounded-full" />
+            <div>
+              <div className="font-semibold">{BRAND.name}</div>
+              <div className="text-xs text-stone-600">{ADDRESS.line1}, {ADDRESS.city} — {ADDRESS.pincode}</div>
+            </div>
+          </div>
+          <div className="text-xs text-stone-500">© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</div>
+        </div>
+      </footer>
+
+      {/* Slide‑over cart (simple) */}
+      {openCart && (
+        <div className="fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpenCart(false)} />
+          <div className="absolute right-0 top-0 h-full w-full sm:w-[420px] bg-white shadow-xl p-5 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-lg">Your Cart</h4>
+              <button onClick={() => setOpenCart(false)} className="rounded-full border px-3 py-1">Close</button>
+            </div>
+            <div className="divide-y mt-3">
+              {items.filter(p => p.qty > 0).length === 0 && (
+                <p className="text-sm text-stone-600 py-4">Cart is empty.</p>
+              )}
+              {items.filter(p => p.qty > 0).map(p => (
+                <div key={p.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="font-medium">{p.title}</div>
+                    <div className="text-xs text-stone-600">{p.weight}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => add(p.id, -1)} className="w-7 h-7 rounded-full border">-</button>
+                    <span className="min-w-6 text-center">{p.qty}</span>
+                    <button onClick={() => add(p.id, 1)} className="w-7 h-7 rounded-full border">+</button>
+                  </div>
+                  <div className="w-20 text-right">{formatINR(p.price * p.qty)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t mt-3 pt-3 text-sm text-stone-700">
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
+              <div className="flex justify-between"><span>Discount</span><span>-{formatINR(discount)}</span></div>
+              <div className="flex justify-between"><span>Delivery</span><span>{shipping ? formatINR(shipping) : "FREE"}</span></div>
+              <div className="flex justify-between font-bold text-stone-900 mt-2"><span>Total</span><span>{formatINR(total)}</span></div>
+            </div>
+            <a href="#checkout" onClick={() => setOpenCart(false)} className="mt-4 block rounded-xl bg-amber-600 text-white text-center px-5 py-3 font-semibold">Checkout</a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
